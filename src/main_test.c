@@ -463,6 +463,46 @@ int main(int argc, char **argv)
         printf("bass voices: %d, %d silent (want 0)\n", NWAVE_SYNTH + nbass, quiet);
     }
 
+    /* ---- SELECT keeps the mutes and the mixer; so does its undo */
+    {
+        song_default();
+        song.pat.mute[1] = song.pat.mute[V_BASS] = 1;
+        song.solo[2] = 1;
+        song.vol[0] = 33;
+        song.pan[3] = -45;
+        song.send[1] = 61;
+        song.master = 71;
+        song.glue = 12;
+        song.master_drive = 27;
+        song.verb_time = 64;
+        song.verb_tone = 22;
+        song.sweep_rate = 1;
+        song.out_mode = 1;
+        song.clk_ppqn = 5;
+        Song mix = song;
+        Pattern before = song.pat;
+        ui_button(BTN_SELECT, 1);
+        ui_button(BTN_SELECT, 0);
+        int new_beat = memcmp(song.pat.cell, before.cell, sizeof before.cell) != 0;
+        int mutes = !memcmp(song.pat.mute, mix.pat.mute, sizeof mix.pat.mute);
+        int mixer = !memcmp(song.vol, mix.vol, sizeof mix.vol) && !memcmp(song.pan, mix.pan, sizeof mix.pan) &&
+                    !memcmp(song.send, mix.send, sizeof mix.send) && !memcmp(song.solo, mix.solo, sizeof mix.solo) &&
+                    song.master == mix.master && song.glue == mix.glue && song.master_drive == mix.master_drive &&
+                    song.verb_time == mix.verb_time && song.verb_tone == mix.verb_tone &&
+                    song.sweep_rate == mix.sweep_rate && song.bpm == mix.bpm && song.out_mode == mix.out_mode &&
+                    song.clk_side == mix.clk_side && song.clk_ppqn == mix.clk_ppqn && song.clk_width == mix.clk_width;
+        /* unmute one on the new beat, then undo: the undo keeps that too */
+        song.pat.mute[1] = 0;
+        ui_button(BTN_R2, 1);
+        ui_button(BTN_SELECT, 1);
+        ui_button(BTN_SELECT, 0);
+        ui_button(BTN_R2, 0);
+        int undone = !memcmp(song.pat.cell, before.cell, sizeof before.cell);
+        int undo_mutes = song.pat.mute[1] == 0 && song.pat.mute[V_BASS] == 1;
+        printf("select: new beat %d, mutes kept %d, mixer kept %d; undo back %d, mutes kept %d\n", new_beat, mutes,
+               mixer, undone, undo_mutes);
+    }
+
     /* ---- sync: a leader's packet sets our tempo */
     {
         song_default();

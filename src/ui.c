@@ -167,11 +167,18 @@ static void adjust_param(int v, int p, int dir, int repeats)
         engine_audition(v);
 }
 
+/* SELECT and its undo change the beat, not the performance: the mutes
+ * stay as they are (the mixer lives outside the pattern and is untouched) */
+static void keep_mutes(Pattern *p, const uint8_t *mute) { memcpy(p->mute, mute, sizeof p->mute); }
+
 static void generate(void)
 {
+    uint8_t mute[NV];
+    memcpy(mute, song.pat.mute, sizeof mute);
     undo_pat = song.pat;
     have_undo = 1;
     pattern_generate(&song.pat, (unsigned)(now_ms * 2654435761u) ^ (unsigned)rand());
+    keep_mutes(&song.pat, mute);
     song_clamp();
     say("NEW BEAT  (R2+SELECT: UNDO)");
 }
@@ -403,6 +410,7 @@ static void action(int b, int repeats)
                 Pattern t = song.pat;
                 song.pat = undo_pat;
                 undo_pat = t;
+                keep_mutes(&song.pat, t.mute);
                 song_clamp();
                 say("UNDONE");
             }

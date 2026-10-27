@@ -61,6 +61,7 @@ jobs:
           grep -q "^generator: 199 seeds, 0 identical pairs, 0 out of range" $r
           grep -q "^save/load: 1, same 1, bpm 163.5, bits 7, slot D used 1" $r
           grep -q "^bass voices: 24, 0 silent (want 0)" $r
+          grep -q "^select: new beat 1, mutes kept 1, mixer kept 1; undo back 1, mutes kept 1" $r
           grep -q "^sync: bpm=140.0 following=1" $r
           grep -q "^save compat v0.1: 1, bpm 151, output 0, ppqn 2, pulse 5" $r
           grep -q "^clock out: 2 PPQN at 120 BPM on the right -> 16 pulses in 4 s, mean gap 250.00 ms, width 5.00 ms, other values 0" $r

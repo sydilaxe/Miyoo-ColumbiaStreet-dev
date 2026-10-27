@@ -96,7 +96,7 @@ These work on every page:
 | --- | --- |
 | L1 / R1 | Previous / next page |
 | START | Play / stop |
-| SELECT | A new jungle beat on all five channels; R2+SELECT undoes it |
+| SELECT | A new jungle beat on all five channels, keeping the mutes and the mixer; R2+SELECT undoes it |
 | L2 (hold) | Low-pass sweep, closing over the time set on MIX > MASTER > L2 |
 | R2 + up / right | Repeat the last 1/8 / 1/16 |
 | R2 + left / down | Reverse / tape stop |
