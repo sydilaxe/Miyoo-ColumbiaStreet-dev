@@ -8,7 +8,8 @@
 #   make package CROSS=<prefix>   build with the OnionOS gcc toolchain (no zig) and zip it as
 #                 build/ColumbiaStreet-miyoo.zip, laid out to unzip at the root of the SD card (CI does this)
 #   make update-test   install a fake release over a test app folder, the way the app updates itself
-#   make version  print CS_VERSION (src/engine.h); releases are tagged v<version>
+#   make version  print the version: CS_VERSION in src/engine.h, or VERSION=x.y.z when given
+#                 (CI passes the release tag's version, so a release is built as v<tag>)
 
 ZIG    ?= $(HOME)/.local/opt/zig-aarch64-linux-0.14.1/zig
 TARGET := arm-linux-gnueabihf.2.28
@@ -18,16 +19,18 @@ SDL_LIB := third_party/onion-lib/libSDL-1.2.so.0
 SRC    := src/engine.c src/breaks.c src/ui.c src/gfx.c src/sync.c src/aclock.c
 HDR    := src/engine.h src/breaks.h src/ui.h src/gfx.h src/sync.h src/aclock.h src/font_data.h src/update.h
 NET    := src/net.c src/update.c # the self-updater, on the Miyoo and in build/cs_update
-CFLAGS := -O2 -std=gnu11 -Wall -Wextra -fno-math-errno
+VERSION := $(shell sed -n 's/^\#define CS_VERSION "\([^"]*\)".*/\1/p' src/engine.h)
+CFLAGS := -O2 -std=gnu11 -Wall -Wextra -fno-math-errno -DCS_VERSION='"$(VERSION)"'
 APP    := dist/ColumbiaStreet
 SAMPLES := $(APP)/breaks/AMEN_153bpm.wav
-VERSION := $(shell sed -n 's/^\#define CS_VERSION "\([^"]*\)".*/\1/p' src/engine.h)
 
 all: $(APP)/columbia $(APP)/icon.png $(APP)/VERSION $(APP)/LICENSE-mbedtls.txt samples
 
-# read by install.sh to tell whether the Miyoo is up to date
-$(APP)/VERSION: src/engine.h
+# read by install.sh to tell whether the Miyoo is up to date; rewritten every time, since
+# VERSION can come from the command line
+$(APP)/VERSION: FORCE
 	echo $(VERSION) > $@
+FORCE:
 
 samples: $(SAMPLES)
 $(SAMPLES): tools/fetch_samples.sh
@@ -109,7 +112,7 @@ install: all
 clean:
 	rm -rf build $(APP)/columbia $(APP)/VERSION $(APP)/LICENSE-mbedtls.txt
 
-.PHONY: all samples test update-test version zip install clean
+.PHONY: all samples test update-test version zip install clean FORCE
 
 # the OnionOS toolchain's gcc instead of zig, e.g. in the aemiii91/miyoomini-toolchain container:
 #   make package CROSS=/opt/miyoomini-toolchain/usr/bin/arm-linux-gnueabihf-

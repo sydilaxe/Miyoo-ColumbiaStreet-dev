@@ -179,11 +179,12 @@ make package CROSS=/opt/miyoomini-toolchain/usr/bin/arm-linux-gnueabihf-   # Oni
 ### Releases
 
 CI (`.github/workflows/build.yml`) builds the Miyoo package and runs the tests on every push.
-To publish a release, first set `CS_VERSION` in `src/engine.h` to the new version. The app
-compares it with the release tag to decide whether it's out of date, so the release job
-refuses a tag that doesn't match (`make version` prints it). Then push the tag (`git tag v0.3.0
-&& git push origin v0.3.0`), or run the workflow from the Actions tab with the tag in
-`release_tag`. Releases are full releases marked Latest, since the updater and `install.sh`
+To publish a release, push a tag (`git tag v0.3.2 && git push origin v0.3.2`), run the
+workflow from the Actions tab with the tag in `release_tag`, or create a release on the
+website. The tag must look like `v1.2.3`. The release is built as that version (`make
+VERSION=0.3.2`), which the app compares with newer release tags, so there's no need to bump
+the source first. `CS_VERSION` in `src/engine.h` is only the version of untagged builds; keep it
+at the latest release so local builds don't offer an update to themselves. Releases are full releases marked Latest, since the updater and `install.sh`
 read GitHub's latest release, and that skips pre-releases. They have `ColumbiaStreet-miyoo.zip`
 attached and `.github/release-notes.md` as their notes. Running again for the same tag replaces
 the zip.
