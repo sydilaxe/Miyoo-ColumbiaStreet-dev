@@ -21,6 +21,7 @@ hints in `src/ui.c`. When you change the engine, run `make test` and keep its ch
 (CI greps for them in `.github/workflows/build.yml`).
 
 The app updates itself from the latest GitHub release (`src/update.c`, HTTPS through Mbed TLS,
-fetched at a pinned release like the samples). Before tagging a release, set `CS_VERSION` in
-`src/engine.h` to match the tag; CI refuses a mismatch. When you change the updater or the
+fetched at a pinned release like the samples). A release is built as the version in its tag (CI
+passes `VERSION=` to make, which overrides `CS_VERSION` in `src/engine.h`); keep `CS_VERSION` at
+the latest release for untagged builds. When you change the updater or the
 package layout, run `make update-test`.

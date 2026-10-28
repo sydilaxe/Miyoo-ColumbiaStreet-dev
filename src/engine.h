@@ -8,7 +8,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define CS_VERSION "0.3.0" /* the release tag is v<this>: the app offers any newer release (CI checks the tag) */
+/* the version for untagged builds; a release build gets its version from the release tag
+ * (make VERSION=x.y.z, which passes -DCS_VERSION). The app offers any newer release. */
+#ifndef CS_VERSION
+#define CS_VERSION "0.3.2"
+#endif
 
 #define NV 5    /* channels */
 #define NBRK 4  /* break channels 0..3; channel 4 is the bass */
