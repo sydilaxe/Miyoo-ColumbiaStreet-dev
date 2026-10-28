@@ -6,6 +6,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "aclock.h"
 #include "breaks.h"
 #include "engine.h"
 #include "gfx.h"
@@ -35,7 +36,9 @@ static void unlock(void) { SDL_UnlockAudio(); }
 static void audio_cb(void *ud, Uint8 *stream, int len)
 {
     (void)ud;
+    aclock_request(now_us(), len / 4);
     engine_render((int16_t *)stream, len / 4);
+    aclock_made(len / 4, engine_position(), engine_steps_per_frame());
 }
 
 static int map_key(SDLKey k)
@@ -152,6 +155,9 @@ int main(int argc, char **argv)
     want.channels = 2;
     want.samples = (Uint16)bufsz;
     want.callback = audio_cb;
+    /* the driver holds about a buffer before it's heard; CS_SYNC_LATENCY
+     * (frames) lines this unit up with other apps by ear if needed */
+    aclock_init(rate, getenv("CS_SYNC_LATENCY") ? atoi(getenv("CS_SYNC_LATENCY")) : bufsz);
     int have_audio = SDL_OpenAudio(&want, NULL) == 0;
     if (have_audio) {
         fprintf(stderr, "audio %d Hz, %d frames/buffer\n", rate, bufsz);
