@@ -25,7 +25,7 @@ enum {
 typedef struct UpdateStatus {
     volatile int state;
     volatile int progress;
-    char latest[32]; /* "0.3.1" */
+    char latest[32]; /* "0.3.2" */
     char url[1024];  /* the release's ColumbiaStreet-miyoo.zip */
     char err[160];
 } UpdateStatus;
@@ -38,7 +38,7 @@ void update_install_start(const char *app_dir); /* from AVAILABLE or FAILED: INS
 int update_check(void);
 int update_install(const char *app_dir);
 
-/* true if the dotted version a ("v0.3.1" or "0.3.1") is newer than b */
+/* true if the dotted version a ("v0.3.2" or "0.3.2") is newer than b */
 int version_newer(const char *a, const char *b);
 /* unpack the App/ColumbiaStreet/ folder of a zip into dir, keeping the user's files; 0 on success */
 int update_unzip(const unsigned char *zip, long len, const char *dir, char *err, size_t errlen);
