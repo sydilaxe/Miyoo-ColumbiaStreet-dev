@@ -10,6 +10,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "aclock.h"
 #include "breaks.h"
 #include "engine.h"
 #include "gfx.h"
@@ -164,6 +165,116 @@ static void render_mono(float *dst, int n)
             dst[done + i] = buf[2 * i] / 32768.f;
         done += k;
     }
+}
+
+/* Wi-Fi sync over a simulated network: a leader 1.7 steps ahead whose
+ * packets arrive 3 ms late at best and up to 40 ms later at random (one in
+ * twenty held 100 ms, as for a power-saving unit), read only every 33 ms,
+ * with the audio made in 1024-frame buffers. echo: the leader echoes our
+ * packets (a current unit), or not (an older one). Returns how far the
+ * follower is heard from the leader over the last 4 of 20 s, in ms. */
+static unsigned sim_rand = 12345;
+static double sim_jitter(void)
+{
+    sim_rand = sim_rand * 1103515245u + 12345u;
+    double u = (sim_rand >> 8) / 16777216.0;
+    return 3000.0 + (u < 0.05 ? 100000.0 : u * 40000.0);
+}
+
+typedef struct {
+    uint8_t b[SYNC_PKT_LEN];
+    uint64_t at;
+    int live;
+} SimPkt;
+
+static void sim_sync(int echo, double *mean_ms, double *worst_ms, float *delay)
+{
+    const double bpm = 120.0, spu = bpm / 15e6; /* 16ths per us */
+    const uint64_t off = 987654321ULL;           /* the leader's clock runs elsewhere */
+    const int buf = 1024;
+    song_default();
+    engine_init(RATE);
+    song.bpm = 97.f;
+    song.sync_mode = SYNC_FOLLOW;
+    sync_core_init(100);
+    aclock_init(RATE, 0);
+    static int16_t pcm[2 * 1024];
+    SimPkt q[64];
+    memset(q, 0, sizeof q);
+    uint64_t heard_mine = 0, heard_mine_at = 0;
+    double sum = 0, worst = 0;
+    int n = 0;
+    uint64_t next_cb = 0, next_poll = 0, next_lead = 7000, next_mine = 57000;
+    for (uint64_t t = 0; t < 20000000ULL; t += 250) {
+        double lead_pos = 1.7 + spu * (double)t, wire_pos = lead_pos + SYNC_WIRE_LEAD_US * spu;
+        if (t >= next_cb) { /* the audio device asks for a buffer */
+            aclock_request(t, buf);
+            engine_render(pcm, buf);
+            aclock_made(buf, engine_position(), engine_steps_per_frame());
+            next_cb += (uint64_t)(buf * 1e6 / RATE);
+        }
+        if (t >= next_lead) { /* the leader sends */
+            next_lead += 100000;
+            for (int i = 0; i < 64; i++)
+                if (!q[i].live) {
+                    uint8_t *b = q[i].b;
+                    uint64_t ts = t + off;
+                    float fb = (float)bpm;
+                    uint32_t id = 7;
+                    memset(b, 0, sizeof q[i].b);
+                    memcpy(b, "HI5S", 4);
+                    b[4] = 1, b[5] = 1, b[6] = SYNC_LEAD;
+                    memcpy(b + 8, &id, 4);
+                    memcpy(b + 12, &fb, 4);
+                    memcpy(b + 16, &wire_pos, 8);
+                    memcpy(b + 24, &ts, 8);
+                    if (echo && heard_mine_at && t - heard_mine_at < 1000000) {
+                        uint32_t me = 100, hold = (uint32_t)(t - heard_mine_at);
+                        b[7] = 1;
+                        memcpy(b + 32, &me, 4);
+                        memcpy(b + 36, &heard_mine, 8);
+                        memcpy(b + 44, &hold, 4);
+                    }
+                    q[i].at = t + (uint64_t)sim_jitter();
+                    q[i].live = 1;
+                    break;
+                }
+        }
+        if (t >= next_mine) { /* we send; the leader hears it a trip later */
+            next_mine += 100000;
+            uint8_t b[SYNC_PKT_LEN];
+            sync_make_packet(b, t);
+            memcpy(&heard_mine, b + 24, 8);
+            heard_mine_at = t + (uint64_t)sim_jitter();
+        }
+        if (t >= next_poll) { /* the screen's frame reads what has come in */
+            next_poll += 33000;
+            for (int i = 0; i < 64; i++)
+                if (q[i].live && q[i].at <= t) {
+                    sync_handle_packet(q[i].b, SYNC_PKT_LEN, q[i].at);
+                    q[i].live = 0;
+                }
+        }
+        if (t >= 16000000ULL && t % 10000 == 0) {
+            double mine;
+            if (aclock_position(t, &mine)) {
+                double e = fmod(lead_pos - mine, 16.0);
+                if (e > 8)
+                    e -= 16;
+                if (e <= -8)
+                    e += 16;
+                e = fabs(e / spu / 1000.0);
+                sum += e;
+                worst = e > worst ? e : worst;
+                n++;
+            }
+        }
+    }
+    *mean_ms = n ? sum / n : 1e9;
+    *worst_ms = worst;
+    *delay = sync_status()->delay_ms;
+    engine_set_rate(1.0);
+    sync_core_init(1);
 }
 
 int main(int argc, char **argv)
@@ -519,6 +630,18 @@ int main(int argc, char **argv)
         sync_core_init(100);
         sync_handle_packet(pkt, sizeof pkt, 2000);
         printf("sync: bpm=%.1f following=%d\n", song.bpm, sync_status()->have_leader);
+    }
+
+    /* ---- sync timing over a slow, uneven network */
+    {
+        double mean, worst;
+        float delay;
+        sim_sync(1, &mean, &worst, &delay);
+        printf("sync timing: packets 3-43 ms late, read every 33 ms -> off by %.2f ms on average, %.2f at worst, "
+               "trip measured %.1f ms (want under 1 and 2: %d)\n",
+               mean, worst, delay, mean < 1.0 && worst < 2.0);
+        sim_sync(0, &mean, &worst, &delay);
+        printf("sync timing, a leader without echo: off by %.2f ms on average (want under 6: %d)\n", mean, mean < 6.0);
     }
 
     /* ---- the update prompt: A starts the install; the B that closes it doesn't roll a rhythm */

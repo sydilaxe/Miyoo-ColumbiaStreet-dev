@@ -126,6 +126,7 @@ void engine_set_playing(int on);
 double engine_position(void);
 void engine_set_position(double steps);
 void engine_set_rate(double r);
+double engine_steps_per_frame(void); /* how far the position moves each frame */
 
 int euclid_hit(const Cell *c, int step);
 void euclid_permute(Cell *c);

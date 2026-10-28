@@ -63,6 +63,8 @@ jobs:
           grep -q "^bass voices: 24, 0 silent (want 0)" $r
           grep -q "^select: new beat 1, mutes kept 1, mixer kept 1; undo back 1, mutes kept 1" $r
           grep -q "^sync: bpm=140.0 following=1" $r
+          grep -q "^sync timing: .*(want under 1 and 2: 1)" $r
+          grep -q "^sync timing, a leader without echo: .*(want under 6: 1)" $r
           grep -q "^save compat v0.1: 1, bpm 151, output 0, ppqn 2, pulse 5" $r
           grep -q "^clock out: 2 PPQN at 120 BPM on the right -> 16 pulses in 4 s, mean gap 250.00 ms, width 5.00 ms, other values 0" $r
           grep -q "^clock out: 24 PPQN at 120 BPM on the right -> 192 pulses in 4 s, mean gap 20.83 ms, width 5.00 ms, other values 0" $r

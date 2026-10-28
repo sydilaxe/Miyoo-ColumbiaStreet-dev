@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "aclock.h"
 #include "breaks.h"
 
 #define SONG_MAGIC 0x31545343u /* "CST1" */
@@ -863,6 +864,7 @@ double engine_position(void)
 
 void engine_set_position(double steps)
 {
+    double was = engine_position();
     if (steps < 0.0)
         steps = 0.0;
     int s = (int)steps;
@@ -872,7 +874,10 @@ void engine_set_position(double steps)
     step_phase = sps * (1.0 - frac);
     if (step_phase < 1.0)
         step_phase = 1.0;
+    aclock_shift(engine_position() - was);
 }
+
+double engine_steps_per_frame(void) { return live.playing && sps > 0.f ? sync_rate / sps : 0.0; }
 
 void engine_set_rate(double r) { sync_rate = r < 0.9 ? 0.9 : r > 1.1 ? 1.1 : r; }
 
