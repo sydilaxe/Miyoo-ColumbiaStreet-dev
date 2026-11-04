@@ -24,6 +24,12 @@ jobs:
     container: aemiii91/miyoomini-toolchain:latest
     steps:
       - uses: actions/checkout@v4
+      - name: The README shows the source's version
+        run: |
+          # README's "Latest release" line and the version in the source move together
+          v=$(make -s version)
+          grep -qF "**Latest release:** [v$v](../../releases/tag/v$v)" README.md ||
+            { echo "::error::README.md's Latest release line isn't v$v, the version in the source"; exit 1; }
       - name: Build
         run: |
           # generated files are committed; keep make from regenerating them

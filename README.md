@@ -17,6 +17,8 @@ tempo-synced L2 filter sweep, and punch-in repeat, reverse and tape-stop effects
 pattern slots switch on the bar line, and the unit syncs tempo over Wi-Fi with HI5 and
 Jaffedrone, or leads other gear from a mono + clock-pulse output.
 
+**Latest release:** [v0.3.2](../../releases/tag/v0.3.2) · [all releases](../../releases)
+
 ## Install
 
 Turn on SSH on the Miyoo (Apps > Tweaks > Network > SSH). Then run this on a computer on the
@@ -179,12 +181,13 @@ make package CROSS=/opt/miyoomini-toolchain/usr/bin/arm-linux-gnueabihf-   # Oni
 ### Releases
 
 CI (`.github/workflows/build.yml`) builds the Miyoo package and runs the tests on every push.
-To publish a release, push a tag (`git tag v0.3.2 && git push origin v0.3.2`), run the
+To publish a release, push a tag (`git tag v1.2.3 && git push origin v1.2.3`), run the
 workflow from the Actions tab with the tag in `release_tag`, or create a release on the
 website. The tag must look like `v1.2.3`. The release is built as that version (`make
-VERSION=0.3.2`), which the app compares with newer release tags, so there's no need to bump
-the source first. `CS_VERSION` in `src/engine.h` is only the version of untagged builds; keep it
-at the latest release so local builds don't offer an update to themselves. Releases are full releases marked Latest, since the updater and `install.sh`
+VERSION=1.2.3`), which the app compares with newer release tags, so there's no need to bump
+the source first. `CS_VERSION` in `src/engine.h` is only the version of untagged builds; keep it,
+and the README's **Latest release** line, at the latest release so local builds don't offer an
+update to themselves (CI checks the two match). Releases are full releases marked Latest, since the updater and `install.sh`
 read GitHub's latest release, and that skips pre-releases. They have `ColumbiaStreet-miyoo.zip`
 attached and `.github/release-notes.md` as their notes. Running again for the same tag replaces
 the zip.
