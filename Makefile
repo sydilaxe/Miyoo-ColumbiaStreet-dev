@@ -16,8 +16,8 @@ TARGET := arm-linux-gnueabihf.2.28
 SDL_INC := third_party/SDL-1.2.15-headers
 SDL_LIB := third_party/onion-lib/libSDL-1.2.so.0
 
-SRC    := src/engine.c src/breaks.c src/ui.c src/gfx.c src/sync.c src/aclock.c
-HDR    := src/engine.h src/breaks.h src/ui.h src/gfx.h src/sync.h src/aclock.h src/font_data.h src/update.h
+SRC    := src/engine.c src/breaks.c src/ui.c src/gfx.c src/sync.c src/aclock.c src/midi.c src/link.c
+HDR    := src/engine.h src/breaks.h src/ui.h src/gfx.h src/sync.h src/aclock.h src/midi.h src/link.h src/font_data.h src/update.h
 NET    := src/net.c src/update.c # the self-updater, on the Miyoo and in build/cs_update
 VERSION := $(shell sed -n 's/^\#define CS_VERSION "\([^"]*\)".*/\1/p' src/engine.h)
 CFLAGS := -O2 -std=gnu11 -Wall -Wextra -fno-math-errno -DCS_VERSION='"$(VERSION)"'
@@ -81,7 +81,7 @@ $(APP)/columbia: $(SRC) $(NET) src/main_sdl.c $(HDR) src/net.h $(SDL_LIB) build/
 
 build/cs_test: $(SRC) src/main_test.c $(HDR)
 	@mkdir -p build
-	cc $(CFLAGS) -o $@ $(SRC) src/main_test.c -lm
+	cc $(CFLAGS) -o $@ $(SRC) src/main_test.c -lm -lpthread
 
 test: build/cs_test $(SAMPLES)
 	@mkdir -p build/test

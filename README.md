@@ -137,6 +137,7 @@ The pages are PATTERN, CHOP, BASS, MIX and SONG. The footer shows each page's ke
 - **SONG**: pattern slots A-H. A loads a slot (at the next bar while playing), X saves the
   pattern into it, R2+Y clears it. Below them are the tempo, the Wi-Fi sync mode and the
   output row (OUTPUT, CLOCK ON, PPQN, PULSE): left / right picks a setting, X / Y changes it.
+  Under them, USB LINK says whether a Brick leads this unit over USB (see below).
 
 ## Wi-Fi sync
 
@@ -150,6 +151,28 @@ was sent, so Wi-Fi delays don't count, and units echo each other's packets to ti
 Older HI5S units still sync with these, a few milliseconds less closely. Units of different apps
 should already line up; if one sounds early or late against another, `CS_SYNC_LATENCY` in
 `launch.sh` sets the frames its sound driver holds (the buffer size, 1024, by default).
+
+## USB link (following a Brick)
+
+The TrimUI Brick version of Columbia Street links Bricks over USB: the leading Brick has a USB
+hub in its top port, and each follower plugs into the same hub. This unit can follow too: its
+USB-C port goes to the hub, it shows up as a "Columbia Street clock link" device with the ids a
+following Brick uses, and the leader sends it its tempo, START, STOP and where its sound is, about
+50 times a second. It starts and stops with the leader, joins mid-song at the leader's place, and
+holds its sound within a fraction of a millisecond of the leader's. The header shows **USB** and
+the SONG page **USB LINK: FOLLOWING** while a Brick leads. It only follows: leading takes a USB
+host port.
+
+**This is untested on the Miyoo Mini Plus.** It needs the port's USB device mode (gadget mode,
+through configfs and FunctionFS), and it isn't known whether the Miyoo's kernel has it. When it
+doesn't, the SONG page says what is missing (**NO DEVICE MODE**, **NO GADGET CONFIGFS** or **NO
+FUNCTIONFS**), nothing else changes, and Wi-Fi sync still works. `log.txt` gets a `link:` line
+at start-up listing what the kernel has (the USB device controller, configfs, FunctionFS and any
+USB gadget modules on the device); please send it along if you try this. `CS_LINK=0` in
+`launch.sh` leaves the port alone.
+
+Leave the Wi-Fi sync mode on AUTO with no other units around (or OFF) while following over USB,
+so the two don't both steer the tempo.
 
 ## Clock out (mono + clock)
 
@@ -212,6 +235,7 @@ SHA-256) into `third_party/mbedtls/` (not committed) and links in statically.
 | `src/gfx.c`, `src/font_data.h` | Framebuffer drawing and the font |
 | `src/sync.c` | Wi-Fi sync |
 | `src/aclock.c` | Audio clock: where the music is at the speaker, for Wi-Fi sync |
+| `src/link.c`, `src/midi.c` | USB link: following a Brick over USB (the USB gadget, and its clock in) |
 | `src/update.c`, `src/net.c` | Self-update: GitHub's latest release, the download and unzip; HTTPS |
 | `src/main_sdl.c` | Device entry point (SDL audio + video) |
 | `src/main_test.c` | Host test harness |

@@ -14,6 +14,8 @@
 #include "breaks.h"
 #include "engine.h"
 #include "gfx.h"
+#include "link.h"
+#include "midi.h"
 #include "sync.h"
 #include "ui.h"
 #include "update.h"
@@ -642,6 +644,107 @@ int main(int argc, char **argv)
                mean, worst, delay, mean < 1.0 && worst < 2.0);
         sim_sync(0, &mean, &worst, &delay);
         printf("sync timing, a leader without echo: off by %.2f ms on average (want under 6: %d)\n", mean, mean < 6.0);
+    }
+
+    /* ---- the USB clock link from a leading Brick (midi.c, link.c) */
+    {
+        static int16_t pcm[2048 * 2];
+        const uint8_t start = 0xfa, stop = 0xfc, tick = 0xf8;
+        aclock_init(RATE, 0); /* no audio clock: the engine's position less the latency */
+
+        /* the Brick's MIDI clock: START plays from the first step, the tempo and
+         * the phase follow, STOP stops */
+        song_default();
+        engine_init(RATE);
+        engine_set_playing(0);
+        midi_reset();
+        midi_set_latency(0.f);
+        uint64_t t = 1000000;
+        midi_feed(&start, 1, t);
+        int started = live.playing;
+        engine_render(pcm, 64);
+        int first = live.step == 0;
+        double worst_clk = 0.0;
+        for (int i = 1; i <= 24 * 16; i++) { /* 16 beats at 120 BPM: a tick each 20.833 ms */
+            t += 20833;
+            midi_feed(&tick, 1, t);
+            engine_render(pcm, 1000);
+            if (i > 24 * 12) {
+                double err = fabs(engine_position() - i / 6.0);
+                worst_clk = err > worst_clk ? err : worst_clk;
+            }
+        }
+        float bpm_in = song.bpm;
+        int following = midi_following();
+        midi_feed(&stop, 1, t);
+        printf("link clock: START plays %d from the first step %d, 120 BPM -> %.1f (%d), "
+               "phase within %.3f steps (want under 0.1: %d), STOP stops %d\n",
+               started, first, bpm_in, fabsf(bpm_in - 120.f) < 0.5f && following, worst_clk, worst_clk < 0.1,
+               !live.playing);
+
+        /* the leader's position: a Brick at 137.37 to 250 BPM sends where its
+         * sound is every 20 ms; this one, stopped, joins it mid-song and holds it */
+        static const double tempos[] = {137.37, 200.0, 224.5, 250.0};
+        double worst_ms_at[4], worst_ms = 0.0, bpm = 0.0, lat = 1024.0 / RATE, lead0 = 37.25;
+        int joined = 1, exact_tempo = 1;
+        uint8_t msg[16];
+        for (int k = 0; k < 4; k++) {
+            bpm = tempos[k];
+            song_default();
+            engine_init(RATE);
+            engine_set_playing(0);
+            midi_reset();
+            midi_set_latency((float)lat);
+            t = 5000000;
+            double worst = 0.0;
+            for (int i = 0; i < 400; i++) { /* 8 s */
+                double lead = lead0 + (double)(t - 5000000) * 1e-6 * bpm / 15.0;
+                if (i > 150) {
+                    double heard = engine_position() - lat * song.bpm / 15.0;
+                    double e = fabs(lead - heard);
+                    worst = e > worst ? e : worst;
+                }
+                int n = midi_link_pos(msg, sizeof msg, lead, bpm, 1);
+                /* it arrives 0.15 to 0.45 ms after it was sent, at random, while this one plays on */
+                int late = (int)(0.00015 * RATE) + rand() % (int)(0.0003 * RATE + 1);
+                engine_render(pcm, late);
+                midi_feed(msg, n, t + (uint64_t)late * 1000000 / RATE);
+                if (i == 0)
+                    joined &= live.playing;
+                engine_render(pcm, RATE / 50 - late);
+                t += 20000;
+            }
+            worst_ms_at[k] = worst * 15000.0 / bpm;
+            worst_ms = fmax(worst_ms, worst_ms_at[k]);
+            exact_tempo &= fabs(song.bpm - bpm) < 0.001;
+        }
+        int n = midi_link_pos(msg, sizeof msg, 0.0, bpm, 0);
+        midi_feed(msg, n, t);
+        int stops = !live.playing;
+        midi_reset();
+        printf("link sync: joins mid-song %d, the exact tempo %d, the sound within %.3f / %.3f / %.3f / %.3f ms of the "
+               "leader's at 137.37 / 200 / 224.5 / 250 BPM (want under 0.25: %d), stops with it %d (want 1: %d)\n",
+               joined, exact_tempo, worst_ms_at[0], worst_ms_at[1], worst_ms_at[2], worst_ms_at[3], worst_ms < 0.25,
+               stops, joined && exact_tempo && worst_ms < 0.25 && stops);
+
+        /* the USB descriptors, the same as a following Brick's: the head (12 bytes)
+         * and the full- and high-speed counts (8), then the interface (9) and its
+         * bulk OUT endpoint (7), for each speed */
+        uint8_t d[256];
+        int dn = link_descriptors(d, sizeof d), sn = link_strings(d + 128, 128);
+        int desc = dn == 52 && d[0] == 3 && d[20 + 5] == 0xff && d[20 + 6] == LINK_SUBCLASS &&
+                   d[20 + 7] == LINK_PROTOCOL && d[29 + 2] == 0x01 && d[29 + 3] == 2 && d[45 + 4] == 0 &&
+                   d[45 + 5] == 2 && sn > 16;
+        printf("link usb: descriptors %d (%d bytes), strings %d (want 1: %d)\n", desc, dn, sn > 16, desc);
+
+        /* the SONG page says how the link is: here (no gadget set up), why not */
+        song_default();
+        ui_set_page(PAGE_SONG);
+        ui_tick(10);
+        ui_draw(fb);
+        snprintf(path, sizeof path, "%s/song_link.ppm", out);
+        write_ppm(path, fb);
+        printf("link screen: state %d, why \"%s\"\n", link_follow_state(), link_why());
     }
 
     /* ---- the update prompt: A starts the install; the B that closes it doesn't roll a rhythm */

@@ -16,6 +16,14 @@ commit into `dist/ColumbiaStreet/breaks` and `bass` (both gitignored apart from 
 README.txt). The breaks are real recordings sliced at load time (`src/breaks.c`), not
 synthesised.
 
+`src/link.c` and `src/midi.c` let this unit follow a TrimUI Brick over USB, ported from the TrimUI
+version (sydilaxe/Trimui-Columbiastreet-dev): the USB-C port as a USB gadget through configfs and
+FunctionFS, with the ids a following Brick uses, and the clock it receives (MIDI clock, START,
+STOP and the leader's position SysEx). `midi.c` is the follower's part of the TrimUI's `midi.c`,
+under the same names; keep the two protocols the same. Whether the Miyoo's kernel has USB device
+mode is not known: the app checks at start-up and logs what it finds (`link:` in log.txt).
+`make test` checks the clock following and the descriptors.
+
 When you change a control or a screen, update the README's Controls section and the footer
 hints in `src/ui.c`. When you change the engine, run `make test` and keep its checks passing
 (CI greps for them in `.github/workflows/build.yml`).
