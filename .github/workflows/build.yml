@@ -87,6 +87,9 @@ jobs:
           grep -q "^clock out: 24 PPQN at 120 BPM on the right -> 192 pulses in 4 s, mean gap 20.83 ms, width 5.00 ms, other values 0" $r
           grep -q "^clock out: 2 PPQN at 120 BPM on the left -> 16 pulses .* other values 0" $r
           grep -q "^clock out stopped: pulses 0 (want 0)" $r
+          grep -q "^link clock: START plays 1 from the first step 1, 120 BPM -> .* (1), phase within .* (want under 0.1: 1), STOP stops 1" $r
+          grep -q "^link sync: .*(want 1: 1)" $r
+          grep -q "^link usb: .*(want 1: 1)" $r
           grep -q "^update prompt: shown 1, A installs 1, B closes it 1, pattern untouched 1" $r
       - name: Self-update against a local fake GitHub
         run: make update-test

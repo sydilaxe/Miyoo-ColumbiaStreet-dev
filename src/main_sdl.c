@@ -10,6 +10,8 @@
 #include "breaks.h"
 #include "engine.h"
 #include "gfx.h"
+#include "link.h"
+#include "midi.h"
 #include "net.h"
 #include "sync.h"
 #include "ui.h"
@@ -170,6 +172,9 @@ int main(int argc, char **argv)
 
     ui_init();
     sync_init();
+    /* the USB port as a clock link: a Brick with a hub can lead this one (link.h) */
+    midi_set_latency((float)bufsz / rate);
+    link_follow_start();
     int update_auto = getenv("CS_UPDATE") ? atoi(getenv("CS_UPDATE")) != 0 : 1, update_tries = 0;
     if (update_auto) {
         net_init(CA_BUNDLE);
@@ -185,6 +190,9 @@ int main(int argc, char **argv)
             else if (e.type == SDL_QUIT)
                 got_signal = 1;
         }
+        char note[48];
+        while (midi_take_notice(note, sizeof note))
+            ui_notice(note);
         Uint32 now = SDL_GetTicks();
         ui_tick((int)(now - last));
         last = now;
@@ -210,6 +218,7 @@ int main(int argc, char **argv)
     }
 
     song_save(SAVE_PATH);
+    link_follow_stop(); /* the USB port given back */
     sync_close();
     if (have_audio)
         SDL_CloseAudio();

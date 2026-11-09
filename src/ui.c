@@ -10,6 +10,7 @@
 #include "breaks.h"
 #include "engine.h"
 #include "gfx.h"
+#include "link.h"
 #include "sync.h"
 #include "update.h"
 
@@ -77,6 +78,8 @@ static void say(const char *fmt, ...)
     va_end(ap);
     toast_ms = 1400;
 }
+
+void ui_notice(const char *msg) { say("%s", msg); }
 
 void ui_init(void)
 {
@@ -585,6 +588,8 @@ static void draw_header(void)
         badge(&bx, ss->leading ? "LEAD" : ss->have_leader ? "FLW" : "SYNC", linked ? 0x46b4ff : C_PANEL2,
               linked ? 0x000000 : C_DIM);
     }
+    if (link_follow_state() == 2) /* a Brick leads over USB */
+        badge(&bx, "USB", 0x46b4ff, 0x000000);
     if (live.playing)
         play_icon(ix, 12, 20, C_PLAY);
     else {
@@ -954,6 +959,10 @@ static void draw_song(void)
     char s[96];
     snprintf(s, sizeof s, "%d BREAKS, %d BASS SAMPLES LOADED", nbanks, nbass);
     gfx_text(12, y + 140, s, C_DIM, FONT_SMALL);
+    /* the USB clock link (link.h): following a Brick, waiting for one, or why not */
+    int lf = link_follow_state();
+    snprintf(s, sizeof s, "USB LINK: %s", lf == 2 ? "FOLLOWING" : lf == 1 ? "WAITING FOR A BRICK" : link_why());
+    text_r(628, y + 140, s, lf == 2 ? 0x46b4ff : C_DIM, FONT_SMALL);
     gfx_text(12, y + 164, "SLOTS LOAD AT THE NEXT BAR WHILE PLAYING", C_DIM, FONT_SMALL);
 }
 

@@ -28,5 +28,6 @@ void ui_draw(uint32_t *fb);
 void ui_draw_loading(uint32_t *fb, const char *msg);
 int ui_quit_requested(void);
 int ui_take_changed(void);
+void ui_notice(const char *msg); /* a message for the screen, main thread */
 int ui_page(void);
 void ui_set_page(int p); /* for the test harness */

@@ -14,6 +14,7 @@ export LD_LIBRARY_PATH="/mnt/SDCARD/.tmp_update/lib/parasyte:/lib:/config/lib:/m
 #   CS_BUFFER=2048  bigger audio buffers if you hear crackle (1024 by default)
 #   CS_RATE=44100   a lower sample rate: a little less work
 #   CS_UPDATE=0     don't check GitHub for a new version
+#   CS_LINK=0       leave the USB port alone (no USB link to a leading Brick)
 # exit status 75: the app has just updated itself, so start the new version
 while :; do
     ./columbia > log.txt 2>&1
