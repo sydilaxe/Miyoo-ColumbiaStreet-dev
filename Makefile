@@ -47,7 +47,7 @@ $(APP)/icon.png: tools/mkicon.py
 SDL_URL := https://raw.githubusercontent.com/OnionUI/Onion/main/static/build/.tmp_update/lib/parasyte/libSDL-1.2.so.0
 $(SDL_LIB):
 	mkdir -p $(dir $@)
-	curl -sSL -o $@ $(SDL_URL) || wget -qO $@ $(SDL_URL) || (rm -f $@; false)
+	curl -fsSL --retry 3 --retry-delay 2 -o $@ $(SDL_URL) || wget -qO $@ $(SDL_URL) || (rm -f $@; false)
 
 # Mbed TLS (Apache-2.0) for the updater's HTTPS, from a pinned release, not committed; each
 # toolchain builds its own libmbedtls.a from it with tools/mbedtls.mk
@@ -58,7 +58,7 @@ MBED_URL := https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-$(MBED
 MBED_SRC := $(MBED_DIR)/.v$(MBED_VER)
 $(MBED_SRC):
 	rm -rf $(MBED_DIR) && mkdir -p $(MBED_DIR)
-	curl -sSL -o $(MBED_DIR).tar.bz2 $(MBED_URL) || wget -qO $(MBED_DIR).tar.bz2 $(MBED_URL)
+	curl -fsSL --retry 3 --retry-delay 2 -o $(MBED_DIR).tar.bz2 $(MBED_URL) || wget -qO $(MBED_DIR).tar.bz2 $(MBED_URL)
 	echo "$(MBED_SHA)  $(MBED_DIR).tar.bz2" | sha256sum -c --quiet || (rm -f $(MBED_DIR).tar.bz2; false)
 	tar -xjf $(MBED_DIR).tar.bz2 -C $(MBED_DIR) --strip-components=1
 	rm $(MBED_DIR).tar.bz2
