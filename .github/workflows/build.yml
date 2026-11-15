@@ -15,7 +15,7 @@ on:
 env:
   # set for a release (a pushed v* tag, a release made on the website, or a manual run with a tag);
   # the release is built as that version, so the source doesn't need bumping first
-  RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+  RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name || ((startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V')) && github.ref_name) || '' }}
 
 jobs:
   miyoo:
@@ -36,18 +36,22 @@ jobs:
           touch src/font_data.h dist/ColumbiaStreet/icon.png
           command -v zip >/dev/null && command -v curl >/dev/null && command -v bzip2 >/dev/null ||
             (apt-get update && apt-get install -y zip curl bzip2)
+          # a release is built as the tag's version (v0.3.0 -> 0.3.0), which the app compares
+          # with the latest release's tag to offer updates; otherwise the version in the source
+          # (a tag typed as V0.5.0, 0.5.0 or with spaces around it is taken as v0.5.0)
           if [ -n "$RELEASE_TAG" ]; then
-            # the app compares release tags as dotted numbers, so the tag must be v<numbers>
-            echo "$RELEASE_TAG" | grep -Eq '^v[0-9]+(\.[0-9]+)*$' ||
-              { echo "::error::release tag $RELEASE_TAG should look like v1.2.3"; exit 1; }
-            set -- VERSION="${RELEASE_TAG#v}"
+            v=$(printf '%s' "$RELEASE_TAG" | tr -d '[:space:]'); v=${v#[vV]}
+            echo "$v" | grep -Eqx '[0-9]+(\.[0-9]+)*' || { echo "::error::release tag $RELEASE_TAG isn't v<number>.<number>..."; exit 1; }
+          else
+            v=$(make -s version)
           fi
-          make -j"$(nproc)" package CROSS=/opt/miyoomini-toolchain/usr/bin/arm-linux-gnueabihf- "$@"
+          echo "building version $v"
+          make -j"$(nproc)" package CROSS=/opt/miyoomini-toolchain/usr/bin/arm-linux-gnueabihf- VERSION="$v"
           ls -l build/ColumbiaStreet-miyoo.zip
           unzip -l build/ColumbiaStreet-miyoo.zip | grep -q "App/ColumbiaStreet/breaks/AMEN_153bpm.wav"
           # the self-updater needs these: the CA bundle for HTTPS, and VERSION for install.sh
           unzip -l build/ColumbiaStreet-miyoo.zip | grep -q "App/ColumbiaStreet/cacert.pem"
-          test "$(unzip -p build/ColumbiaStreet-miyoo.zip App/ColumbiaStreet/VERSION)" = "$(make -s version "$@")"
+          test "$(unzip -p build/ColumbiaStreet-miyoo.zip App/ColumbiaStreet/VERSION)" = "$v"
       - uses: actions/upload-artifact@v4
         with:
           name: ColumbiaStreet-miyoo
@@ -101,8 +105,8 @@ jobs:
 
   release:
     name: Publish release
-    # runs for: a pushed v* tag, a release created on the website, or a manual run with a tag filled in
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' || inputs.release_tag != ''
+    # runs for: a pushed v* (or V*) tag, a release created on the website, or a manual run with a tag filled in
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || github.event_name == 'release' || inputs.release_tag != ''
     needs: [miyoo, test]
     runs-on: ubuntu-latest
     permissions:
@@ -112,17 +116,20 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: ColumbiaStreet-miyoo
-      - name: Check the package was built as this version
-        env:
-          TAG: ${{ env.RELEASE_TAG }}
+      - name: Check the package is the tag's version
         run: |
-          # the app compares the release tag with the version it was built as; a mismatch would offer the update forever
-          v=$(unzip -p ColumbiaStreet-miyoo.zip App/ColumbiaStreet/VERSION)
-          [ "$TAG" = "v$v" ] || { echo "::error::tag $TAG doesn't match the package's version $v"; exit 1; }
+          # the build job built it as the tag's version; a mismatch would make the app offer
+          # this update forever. A manual run's tag may leave out the v, or be typed V0.5.0.
+          v=$(printf '%s' "$RELEASE_TAG" | tr -d '[:space:]'); v=${v#[vV]}
+          TAG=v$v
+          # a release made on the website keeps its own tag; the package goes onto it
+          if [ "$GITHUB_EVENT_NAME" = release ]; then TAG=$RELEASE_TAG; fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          test "$(unzip -p ColumbiaStreet-miyoo.zip App/ColumbiaStreet/VERSION)" = "$v" ||
+            { echo "::error::ColumbiaStreet-miyoo.zip isn't version $v"; exit 1; }
       - name: Create the GitHub release with the Miyoo package
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ env.RELEASE_TAG }}
         run: |
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" ColumbiaStreet-miyoo.zip --repo "$GITHUB_REPOSITORY" --clobber
